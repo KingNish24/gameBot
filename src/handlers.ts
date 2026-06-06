@@ -77,11 +77,19 @@ export function registerHandlers(app: App): void {
 
 		const isCreator = game.creator === userId;
 		const blocks = updateLobbyBlocks(game, isCreator);
+		if (game.mainMessageTs) {
+			await client.chat.update({
+				token: process.env.SLACK_BOT_TOKEN,
+				channel: channelId,
+				ts: game.mainMessageTs,
+				text: `🚀 Game ${game.id} (${game.players.size} players)`,
+				blocks,
+			});
+		}
 		await client.chat.postMessage({
 			token: process.env.SLACK_BOT_TOKEN,
 			channel: channelId,
 			text: `👤 <@${userId}> joined the game!`,
-			blocks,
 		});
 	}) as ActionHandler);
 
@@ -149,6 +157,25 @@ export function registerHandlers(app: App): void {
 			} catch (dmErr) {
 				console.error(`Failed to DM ${player.name}:`, dmErr);
 			}
+		}
+
+		// Update lobby message to show game in progress
+		if (game.mainMessageTs) {
+			await client.chat.update({
+				token: process.env.SLACK_BOT_TOKEN,
+				channel: channelId,
+				ts: game.mainMessageTs,
+				text: `🚀 Game ${game.id} in progress`,
+				blocks: [
+					{
+						type: "section",
+						text: {
+							type: "mrkdwn",
+							text: `🚀 *Game ${game.id}* — Game in progress! Round ${game.round}`,
+						},
+					},
+				],
+			});
 		}
 
 		// Announce start
@@ -322,21 +349,6 @@ export function registerHandlers(app: App): void {
 					blocks: endBlocks,
 				});
 			} else {
-				await client.chat.postMessage({
-					token: process.env.SLACK_BOT_TOKEN,
-					channel: channelId,
-					text: "🔄 Next round...",
-					blocks: [
-						{
-							type: "section",
-							text: {
-								type: "mrkdwn",
-								text: "🔄 *Next round starting soon...*",
-							},
-						},
-					],
-				});
-
 				startNextRound(game);
 				const mission = getCurrentMission(game);
 
@@ -847,21 +859,6 @@ export async function processVoteResults(
 			blocks: endBlocks,
 		});
 	} else {
-		await client.chat.postMessage({
-			token: process.env.SLACK_BOT_TOKEN,
-			channel: game.channel,
-			text: "🔄 Next round...",
-			blocks: [
-				{
-					type: "section",
-					text: {
-						type: "mrkdwn",
-						text: "🔄 *Next round starting soon...*",
-					},
-				},
-			],
-		});
-
 		await startRound(client, game);
 	}
 }

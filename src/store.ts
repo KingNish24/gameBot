@@ -27,6 +27,7 @@ export function createGame(
 		timer: null,
 		timerInterval: null,
 		timerMessageTs: null,
+		mainMessageTs: null,
 		votes: new Map(),
 		missionResponses: new Map(),
 		winReason: null,

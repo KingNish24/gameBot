@@ -35,6 +35,7 @@ export interface Game {
 	timer: ReturnType<typeof setTimeout> | null;
 	timerInterval: ReturnType<typeof setInterval> | null;
 	timerMessageTs: string | null;
+	mainMessageTs: string | null;
 	votes: Map<string, string>;
 	missionResponses: Map<string, string>;
 	winReason: string | null;

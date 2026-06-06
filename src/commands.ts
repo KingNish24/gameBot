@@ -51,14 +51,15 @@ export function registerCommands(app: App): void {
 						command.user_id,
 						command.user_name,
 					);
-					const blocks = buildLobbyBlocks(game);
-					await client.chat.postMessage({
-						token: process.env.SLACK_BOT_TOKEN,
-						channel: command.channel_id,
-						text: `🚀 Game ${game.id} created!`,
-						blocks,
-					});
-					return;
+				const blocks = buildLobbyBlocks(game);
+				const msg = await client.chat.postMessage({
+					token: process.env.SLACK_BOT_TOKEN,
+					channel: command.channel_id,
+					text: `🚀 Game ${game.id} created!`,
+					blocks,
+				});
+				game.mainMessageTs = msg.ts as string;
+				return;
 				}
 
 				const blocks = buildStatusBlocks(game);
@@ -102,15 +103,23 @@ export function registerCommands(app: App): void {
 						text: "You joined the game!",
 					});
 
-					const isCreator = game.creator === command.user_id;
-					const blocks = updateLobbyBlocks(game, isCreator);
-					await client.chat.postMessage({
+				const isCreator = game.creator === command.user_id;
+				const blocks = updateLobbyBlocks(game, isCreator);
+				if (game.mainMessageTs) {
+					await client.chat.update({
 						token: process.env.SLACK_BOT_TOKEN,
 						channel: command.channel_id,
-						text: `👤 <@${command.user_id}> joined the game!`,
+						ts: game.mainMessageTs,
+						text: `🚀 Game ${game.id} (${game.players.size} players)`,
 						blocks,
 					});
-					return;
+				}
+				await client.chat.postMessage({
+					token: process.env.SLACK_BOT_TOKEN,
+					channel: command.channel_id,
+					text: `👤 <@${command.user_id}> joined the game!`,
+				});
+				return;
 				}
 
 				// ── leave ──
@@ -156,15 +165,23 @@ export function registerCommands(app: App): void {
 						if (firstPlayer) game.creator = firstPlayer.id;
 					}
 
-					const isCreator = game.creator === command.user_id;
-					const blocks = updateLobbyBlocks(game, isCreator);
-					await client.chat.postMessage({
+				const isCreator = game.creator === command.user_id;
+				const blocks = updateLobbyBlocks(game, isCreator);
+				if (game.mainMessageTs) {
+					await client.chat.update({
 						token: process.env.SLACK_BOT_TOKEN,
 						channel: command.channel_id,
-						text: `🚪 <@${command.user_id}> left the game.`,
+						ts: game.mainMessageTs,
+						text: `🚀 Game ${game.id} (${game.players.size} players)`,
 						blocks,
 					});
-					return;
+				}
+				await client.chat.postMessage({
+					token: process.env.SLACK_BOT_TOKEN,
+					channel: command.channel_id,
+					text: `🚪 <@${command.user_id}> left the game.`,
+				});
+				return;
 				}
 
 				// ── start ──
@@ -223,6 +240,25 @@ export function registerCommands(app: App): void {
 						} catch (dmErr) {
 							console.error(`Failed to DM ${player.name}:`, dmErr);
 						}
+					}
+
+					// Update lobby message to show game in progress
+					if (game.mainMessageTs) {
+						await client.chat.update({
+							token: process.env.SLACK_BOT_TOKEN,
+							channel: command.channel_id,
+							ts: game.mainMessageTs,
+							text: `🚀 Game ${game.id} in progress`,
+							blocks: [
+								{
+									type: "section",
+									text: {
+										type: "mrkdwn",
+										text: `🚀 *Game ${game.id}* — Game in progress! Round ${game.round}`,
+									},
+								},
+							],
+						});
 					}
 
 					// Announce
@@ -337,21 +373,41 @@ export function registerCommands(app: App): void {
 						return;
 					}
 
+					const mainTs = game.mainMessageTs;
 					removeGame(command.channel_id);
-					await client.chat.postMessage({
-						token: process.env.SLACK_BOT_TOKEN,
-						channel: command.channel_id,
-						text: "Game cancelled.",
-						blocks: [
-							{
-								type: "section",
-								text: {
-									type: "mrkdwn",
-									text: `🗑️ *Game cancelled* by <@${command.user_id}>`,
+
+					if (mainTs) {
+						await client.chat.update({
+							token: process.env.SLACK_BOT_TOKEN,
+							channel: command.channel_id,
+							ts: mainTs,
+							text: `🗑️ Game cancelled by <@${command.user_id}>`,
+							blocks: [
+								{
+									type: "section",
+									text: {
+										type: "mrkdwn",
+										text: `🗑️ *Game cancelled* by <@${command.user_id}>`,
+									},
 								},
-							},
-						],
-					});
+							],
+						});
+					} else {
+						await client.chat.postMessage({
+							token: process.env.SLACK_BOT_TOKEN,
+							channel: command.channel_id,
+							text: "Game cancelled.",
+							blocks: [
+								{
+									type: "section",
+									text: {
+										type: "mrkdwn",
+										text: `🗑️ *Game cancelled* by <@${command.user_id}>`,
+									},
+								},
+							],
+						});
+					}
 					return;
 				}
 
