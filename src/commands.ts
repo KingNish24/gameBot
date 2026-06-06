@@ -51,15 +51,15 @@ export function registerCommands(app: App): void {
 						command.user_id,
 						command.user_name,
 					);
-				const blocks = buildLobbyBlocks(game);
-				const msg = await client.chat.postMessage({
-					token: process.env.SLACK_BOT_TOKEN,
-					channel: command.channel_id,
-					text: `🚀 Game ${game.id} created!`,
-					blocks,
-				});
-				game.mainMessageTs = msg.ts as string;
-				return;
+					const blocks = buildLobbyBlocks(game);
+					const msg = await client.chat.postMessage({
+						token: process.env.SLACK_BOT_TOKEN,
+						channel: command.channel_id,
+						text: `🚀 Game ${game.id} created!`,
+						blocks,
+					});
+					game.mainMessageTs = msg.ts as string;
+					return;
 				}
 
 				const blocks = buildStatusBlocks(game);
@@ -103,23 +103,23 @@ export function registerCommands(app: App): void {
 						text: "You joined the game!",
 					});
 
-				const isCreator = game.creator === command.user_id;
-				const blocks = updateLobbyBlocks(game, isCreator);
-				if (game.mainMessageTs) {
-					await client.chat.update({
+					const isCreator = game.creator === command.user_id;
+					const blocks = updateLobbyBlocks(game, isCreator);
+					if (game.mainMessageTs) {
+						await client.chat.update({
+							token: process.env.SLACK_BOT_TOKEN,
+							channel: command.channel_id,
+							ts: game.mainMessageTs,
+							text: `🚀 Game ${game.id} (${game.players.size} players)`,
+							blocks,
+						});
+					}
+					await client.chat.postMessage({
 						token: process.env.SLACK_BOT_TOKEN,
 						channel: command.channel_id,
-						ts: game.mainMessageTs,
-						text: `🚀 Game ${game.id} (${game.players.size} players)`,
-						blocks,
+						text: `👤 <@${command.user_id}> joined the game!`,
 					});
-				}
-				await client.chat.postMessage({
-					token: process.env.SLACK_BOT_TOKEN,
-					channel: command.channel_id,
-					text: `👤 <@${command.user_id}> joined the game!`,
-				});
-				return;
+					return;
 				}
 
 				// ── leave ──
@@ -165,23 +165,23 @@ export function registerCommands(app: App): void {
 						if (firstPlayer) game.creator = firstPlayer.id;
 					}
 
-				const isCreator = game.creator === command.user_id;
-				const blocks = updateLobbyBlocks(game, isCreator);
-				if (game.mainMessageTs) {
-					await client.chat.update({
+					const isCreator = game.creator === command.user_id;
+					const blocks = updateLobbyBlocks(game, isCreator);
+					if (game.mainMessageTs) {
+						await client.chat.update({
+							token: process.env.SLACK_BOT_TOKEN,
+							channel: command.channel_id,
+							ts: game.mainMessageTs,
+							text: `🚀 Game ${game.id} (${game.players.size} players)`,
+							blocks,
+						});
+					}
+					await client.chat.postMessage({
 						token: process.env.SLACK_BOT_TOKEN,
 						channel: command.channel_id,
-						ts: game.mainMessageTs,
-						text: `🚀 Game ${game.id} (${game.players.size} players)`,
-						blocks,
+						text: `🚪 <@${command.user_id}> left the game.`,
 					});
-				}
-				await client.chat.postMessage({
-					token: process.env.SLACK_BOT_TOKEN,
-					channel: command.channel_id,
-					text: `🚪 <@${command.user_id}> left the game.`,
-				});
-				return;
+					return;
 				}
 
 				// ── start ──
@@ -411,6 +411,47 @@ export function registerCommands(app: App): void {
 					return;
 				}
 
+				// ── rules ──
+				case "rules": {
+					await respond({
+						response_type: "ephemeral",
+						text:
+							"*How to Play — Astronaut Impostor*\n\n" +
+							"━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
+							"*Objective*\n" +
+							"Crewmates: Find and eject the 🐍 Impostor before it's too late.\n" +
+							"Impostor: Blend in and deceive — survive all rounds without getting caught.\n\n" +
+							"━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
+							"*Players*\n" +
+							"• 4–8 players per game\n" +
+							"• If fewer than 4 humans join, AI bots fill the gaps\n\n" +
+							"━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
+							"*Game Flow*\n\n" +
+							"*1. Lobby* — Players join via `/fn-imposter join` or the *Join Game* button.\n" +
+							"*2. Roles* — Each player gets a secret role via DM (Crewmate or Impostor).\n" +
+							"*3. Mission* — Everyone receives a scenario in their DMs.\n" +
+							"   • Crewmates get a secret clue.\n" +
+							"   • The Impostor gets nothing — they must bluff.\n" +
+							"*4. Discussion* — All responses are posted anonymously.\n" +
+							"   Debate who's lying before time runs out!\n" +
+							"*5. Voting* — Vote to eject a suspect (or skip).\n" +
+							"   Most votes wins. Ties = no ejection.\n" +
+							"*6. Result* — The ejected player's role is revealed.\n" +
+							"   Game ends if the Impostor is caught or crewmates are wiped out.\n" +
+							"*7. Repeat* — Up to 3 rounds. The Impostor wins if they survive all of them.\n\n" +
+							"━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
+							"*AI Bot Players*\n" +
+							"Bots automatically fill empty slots to reach 4 players. They respond to missions and vote like real players.\n\n" +
+							"━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
+							"⏱️ *Timers*\n" +
+							"• Mission: 60 seconds\n" +
+							"• Discussion: 45 seconds\n" +
+							"• Voting: 30 seconds\n" +
+							"If you don't respond in time, you're marked as no-response.\n",
+					});
+					return;
+				}
+
 				// ── help ──
 				case "help":
 				default: {
@@ -424,6 +465,7 @@ export function registerCommands(app: App): void {
 							"`/fn-imposter start` — Start the game (creator only, need 4+ players)\n" +
 							"`/fn-imposter vote @user` — Vote to eject someone\n" +
 							"`/fn-imposter status` — Show game status\n" +
+							"`/fn-imposter rules` — How to play\n" +
 							"`/fn-imposter cancel` — Cancel the game (creator only)",
 					});
 					return;

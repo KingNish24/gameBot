@@ -73,8 +73,6 @@ export function updateLobbyBlocks(game: Game, isCreator: boolean): any[] {
 		.map((p) => `• ${playerRef(p)}`)
 		.join("\n");
 
-	const canStart = game.players.size >= 4 && isCreator;
-
 	const blocks: any[] = [
 		header(`🚀 ASTRO IMPOSTOR (${game.id})`),
 		section(`Players: *${game.players.size}* / 8\n\n${playerList}`),
@@ -82,9 +80,9 @@ export function updateLobbyBlocks(game: Game, isCreator: boolean): any[] {
 		actions(
 			[
 				button("➕ Join Game", "astro_join"),
-				...(canStart
-					? [button("🚀 Start Game", "astro_start", { style: "primary" })]
-					: []),
+				button("🚀 Start Game", "astro_start", {
+					style: "primary",
+				}),
 			].filter(Boolean),
 		),
 		context(
@@ -229,9 +227,7 @@ export function buildDiscussionBlocks(
 
 	blocks.push(
 		divider(),
-		section(
-			"Discuss the logs and find the 🐍! Who is lying?"
-		)
+		section("Discuss the logs and find the 🐍! Who is lying?"),
 	);
 
 	return blocks;
