@@ -24,6 +24,8 @@ export function createGame(
 		round: 0,
 		maxRounds: 3,
 		timer: null,
+		timerInterval: null,
+		timerMessageTs: null,
 		votes: new Map(),
 		missionResponses: new Map(),
 		winReason: null,
@@ -38,7 +40,9 @@ export function createGame(
 
 export function removeGame(channelId: string): void {
 	const game = store.games.get(channelId);
-	if (game?.timer) clearTimeout(game.timer);
+	if (!game) return;
+	if (game.timer) clearTimeout(game.timer);
+	if (game.timerInterval) clearInterval(game.timerInterval);
 	store.games.delete(channelId);
 }
 

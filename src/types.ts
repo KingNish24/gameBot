@@ -32,6 +32,8 @@ export interface Game {
 	round: number;
 	maxRounds: number;
 	timer: ReturnType<typeof setTimeout> | null;
+	timerInterval: ReturnType<typeof setInterval> | null;
+	timerMessageTs: string | null;
 	votes: Map<string, string>;
 	missionResponses: Map<string, string>;
 	winReason: string | null;

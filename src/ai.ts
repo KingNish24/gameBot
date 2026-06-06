@@ -31,7 +31,7 @@ async function callAI(
 						{ role: "system", content: systemPrompt },
 						{ role: "user", content: userPrompt },
 					],
-					max_tokens: 3000,
+					max_tokens: 300,
 				}),
 			});
 
@@ -71,7 +71,7 @@ export async function generateMissionResponse(
 	if (player.role === "crewmate" && crewmateInfo) {
 		const systemPrompt =
 			"You are a crewmate on a spaceship. You noticed a clue and are writing a mission log entry. " +
-			"Write a natural in-character log entry incorporating the clue naturally — don't make it too obvious you have inside info. " +
+			"Write a natural in-character log entry incorporating the clue naturally, and don't take player names, just try to defend yourself — don't make it too obvious you have inside info. " +
 			"Keep it 1-3 sentences. No markdown, no asterisks, just plain text.";
 
 		const userPrompt = [
@@ -87,7 +87,7 @@ export async function generateMissionResponse(
 	// Impostor (or crewmate without info — edge case)
 	const systemPrompt =
 		"You are an impostor hiding among a spaceship crew. You need to write a fake mission log entry " +
-		"that sounds believable so the crew doesn't suspect you. Mention a made-up observation related to the scenario. " +
+		"that sounds believable so the crew doesn't suspect you. Mention a made-up observation related to the scenario. and don't take player names, just try to defend yourself." +
 		"Keep it 1-3 sentences. No markdown, no asterisks, just plain text.";
 
 	const userPrompt = [

@@ -440,14 +440,18 @@ export function registerHandlers(app: App): void {
 				blocks: discussionBlocks,
 			});
 
+			// Start discussion countdown (clears mission countdown automatically)
+			startTimerDisplay(client, game, 45_000, "💬 Discussion");
+
 			const DISCUSSION_TIMEOUT = 45_000;
 			if (game.timer) clearTimeout(game.timer);
 			game.timer = setTimeout(async () => {
 				try {
+					await clearTimerDisplay(game, client, channel);
 					startVotingPhase(game);
 
 					for (const player of game.players.values()) {
-						if (!player.alive) continue;
+						if (!player.alive || player.isBot) continue;
 						await client.chat.postEphemeral({
 							token: process.env.SLACK_BOT_TOKEN,
 							channel,
@@ -477,6 +481,90 @@ export function registerHandlers(app: App): void {
 			}, DISCUSSION_TIMEOUT);
 		}
 	}) as any);
+}
+
+/** Post a countdown message and update it every second */
+async function startTimerDisplay(
+	client: any,
+	game: import("./types").Game,
+	durationMs: number,
+	label: string,
+) {
+	await clearTimerDisplay(game, client, game.channel);
+	const startTime = Date.now();
+	const totalSec = Math.floor(durationMs / 1000);
+
+	try {
+		const msg = await client.chat.postMessage({
+			token: process.env.SLACK_BOT_TOKEN,
+			channel: game.channel,
+			text: `⏱️ ${label}: ${totalSec}s`,
+			blocks: [
+				{
+					type: "section",
+					text: {
+						type: "mrkdwn",
+						text: `⏱️ *${label}* — \`${totalSec}s\` remaining`,
+					},
+				},
+			],
+		});
+		game.timerMessageTs = msg.ts as string;
+	} catch (err) {
+		console.error("Failed to post timer display:", err);
+		return;
+	}
+
+	game.timerInterval = setInterval(async () => {
+		const elapsed = Date.now() - startTime;
+		const remaining = Math.max(0, Math.ceil((durationMs - elapsed) / 1000));
+
+		if (!game.timerMessageTs) return;
+
+		try {
+			await client.chat.update({
+				token: process.env.SLACK_BOT_TOKEN,
+				channel: game.channel,
+				ts: game.timerMessageTs,
+				text: `⏱️ ${label}: ${remaining}s`,
+				blocks: [
+					{
+						type: "section",
+						text: {
+							type: "mrkdwn",
+							text: `⏱️ *${label}* — \`${remaining}s\` remaining`,
+						},
+					},
+				],
+			});
+		} catch (err) {
+			console.error("Failed to update timer display:", err);
+		}
+	}, 1000);
+}
+
+async function clearTimerDisplay(
+	game: import("./types").Game,
+	client?: any,
+	channel?: string,
+) {
+	if (game.timerInterval) {
+		clearInterval(game.timerInterval);
+		game.timerInterval = null;
+	}
+	// Delete the timer message from Slack
+	if (client && channel && game.timerMessageTs) {
+		try {
+			await client.chat.delete({
+				token: process.env.SLACK_BOT_TOKEN,
+				channel,
+				ts: game.timerMessageTs,
+			});
+		} catch (err) {
+			console.error("Failed to delete timer message:", err);
+		}
+	}
+	game.timerMessageTs = null;
 }
 
 /** Start a round: send mission DMs, set timer, trigger bot AI responses */
@@ -524,6 +612,9 @@ export async function startRound(client: any, game: import("./types").Game) {
 		],
 	});
 
+	// Start countdown timer display for mission phase
+	startTimerDisplay(client, game, 60_000, "📡 Mission");
+
 	// Trigger AI responses for bot players
 	const botPlayers = alivePlayers.filter((p) => p.isBot);
 	if (botPlayers.length > 0) {
@@ -550,6 +641,9 @@ export async function startRound(client: any, game: import("./types").Game) {
 				text: `📡 Round ${game.round} — Mission Logs`,
 				blocks: discussionBlocks,
 			});
+
+			// Start discussion countdown (clears mission countdown automatically)
+			startTimerDisplay(client, game, 45_000, "💬 Discussion");
 
 			// Then auto-advance to voting
 			const DISCUSSION_TIMEOUT = 45_000;
@@ -596,6 +690,7 @@ async function processBotMissionResponses(
 async function advanceToVoting(client: any, game: import("./types").Game) {
 	startVotingPhase(game);
 	if (game.timer) clearTimeout(game.timer);
+	await clearTimerDisplay(game, client, game.channel);
 
 	const alivePlayers = Array.from(game.players.values()).filter((p) => p.alive);
 
@@ -677,6 +772,7 @@ export async function processVoteResults(
 	client: any,
 	game: import("./types").Game,
 ) {
+	await clearTimerDisplay(game, client, game.channel);
 	const { eliminated, wasImpostor } = tallyVotes(game);
 	setPhase(game, "result");
 
