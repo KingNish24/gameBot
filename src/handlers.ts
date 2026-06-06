@@ -179,9 +179,13 @@ export function registerHandlers(app: App): void {
 		}
 
 		// Announce start as threaded reply under main message
+		const humanPlayerList = Array.from(game.players.values())
+			.filter((p) => !p.isBot)
+			.map((p) => `• <@${p.id}>`)
+			.join("\n");
 		const startText =
 			"🚀 *GAME STARTED!*\n\n" +
-			`👥 *${game.players.size} players* — ${botPlayers.length} bot(s) on board` +
+			`👥 *Players (${game.players.size})*\n${humanPlayerList}\n` +
 			botAnnouncement +
 			"\n\nRoles have been assigned. Check your *DMs*!";
 
