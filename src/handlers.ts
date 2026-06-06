@@ -207,7 +207,9 @@ export function registerHandlers(app: App): void {
 
 		const payload = body as unknown as BlockAction;
 		const userId = payload.user?.id;
-		const channelId = payload.channel?.id;
+		// Button value carries the public game channel (button is in a DM)
+		const channelId =
+			(payload.actions?.[0] as any)?.value ?? payload.channel?.id;
 		if (!channelId || !userId) return;
 
 		const game = getGame(channelId);

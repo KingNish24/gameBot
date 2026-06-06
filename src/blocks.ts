@@ -159,7 +159,11 @@ export function buildMissionDM(
 	}
 
 	blocks.push(
-		actions([button("📝 Submit Mission Report", "astro_open_mission_report")]),
+		actions([
+			button("📝 Submit Mission Report", "astro_open_mission_report", {
+				value: game.channel,
+			}),
+		]),
 	);
 
 	return blocks;
@@ -226,14 +230,8 @@ export function buildDiscussionBlocks(
 	blocks.push(
 		divider(),
 		section(
-			"Discuss the logs and find the 🐍! Who is lying?\n\n" +
-				"When ready, cast your vote below.",
-		),
-		actions([
-			button("🗳️ Vote to Eject", "astro_vote_open", {
-				style: "danger",
-			}),
-		]),
+			"Discuss the logs and find the 🐍! Who is lying?"
+		)
 	);
 
 	return blocks;
