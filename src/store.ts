@@ -46,6 +46,7 @@ export function addPlayer(
 	game: Game,
 	userId: string,
 	userName: string,
+	playerIsBot = false,
 ): Player {
 	const existing = game.players.get(userId);
 	if (existing) return existing;
@@ -56,9 +57,45 @@ export function addPlayer(
 		role: null,
 		alive: true,
 		voteCount: 0,
+		isBot: playerIsBot,
 	};
 	game.players.set(userId, player);
 	return player;
+}
+
+const BOT_NAMES = ["Bot Alpha", "Bot Beta", "Bot Gamma", "Bot Delta"];
+
+/**
+ * Add bot players to reach `targetCount` human + bot players.
+ * Returns the number of bots added.
+ */
+export function addBotsToFill(game: Game, targetCount: number): number {
+	const humanCount = Array.from(game.players.values()).filter(
+		(p) => !p.isBot,
+	).length;
+
+	if (humanCount >= targetCount) return 0;
+
+	const needed = targetCount - humanCount;
+	let botIndex = 0;
+
+	for (const player of game.players.values()) {
+		if (player.id.startsWith("bot-")) {
+			botIndex = Math.max(
+				botIndex,
+				Number.parseInt(player.id.replace("bot-", ""), 10) + 1,
+			);
+		}
+	}
+
+	for (let i = 0; i < needed; i++) {
+		const botId = `bot-${botIndex + i}`;
+		const botName =
+			BOT_NAMES[(botIndex + i) % BOT_NAMES.length] ?? `Bot ${botIndex + i}`;
+		addPlayer(game, botId, botName, true);
+	}
+
+	return needed;
 }
 
 export function removePlayer(game: Game, userId: string): boolean {

@@ -201,8 +201,17 @@ export function registerCommands(app: App): void {
 						return;
 					}
 
-					// Send role DMs
+					const botPlayers = Array.from(game.players.values()).filter(
+						(p) => p.isBot,
+					);
+					const botAnnouncement =
+						botPlayers.length > 0
+							? `\n\n🤖 *Bot players:*\n${botPlayers.map((p) => `• ${p.name}`).join("\n")}`
+							: "";
+
+					// Send role DMs (skip bots)
 					for (const player of game.players.values()) {
+						if (player.isBot) continue;
 						try {
 							const blocks = buildRoleDM(player);
 							await client.chat.postMessage({
@@ -217,6 +226,12 @@ export function registerCommands(app: App): void {
 					}
 
 					// Announce
+					const startText =
+						"🚀 *GAME STARTED!*\n\n" +
+						`👥 *${game.players.size} players* — ${botPlayers.length} bot(s) on board` +
+						botAnnouncement +
+						"\n\nRoles have been assigned. Check your *DMs*!";
+
 					await client.chat.postMessage({
 						token: process.env.SLACK_BOT_TOKEN,
 						channel: command.channel_id,
@@ -226,9 +241,7 @@ export function registerCommands(app: App): void {
 								type: "section",
 								text: {
 									type: "mrkdwn",
-									text:
-										"🚀 *GAME STARTED!*\n\n" +
-										"Roles have been assigned. Check your *DMs*!",
+									text: startText,
 								},
 							},
 						],

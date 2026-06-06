@@ -28,6 +28,11 @@ function actions(elements: any[]) {
 	return { type: "actions", elements } as const;
 }
 
+/** Format a player reference — Slack mention for humans, plain name for bots */
+function playerRef(p: Player): string {
+	return p.isBot ? p.name : `<@${p.id}>`;
+}
+
 function button(text: string, actionId: string, extra?: any) {
 	return {
 		type: "button",
@@ -43,7 +48,7 @@ export function buildLobbyBlocks(game: Game): any[] {
 		playerCount === 0
 			? "_No players yet._"
 			: Array.from(game.players.values())
-					.map((p) => `• <@${p.id}>`)
+					.map((p) => `• ${playerRef(p)}`)
 					.join("\n");
 
 	const blocks: any[] = [
@@ -65,7 +70,7 @@ export function buildLobbyBlocks(game: Game): any[] {
 /** Updated lobby blocks for the pinned message after players join/leave */
 export function updateLobbyBlocks(game: Game, isCreator: boolean): any[] {
 	const playerList = Array.from(game.players.values())
-		.map((p) => `• <@${p.id}>`)
+		.map((p) => `• ${playerRef(p)}`)
 		.join("\n");
 
 	const canStart = game.players.size >= 4 && isCreator;
@@ -285,7 +290,7 @@ export function buildResultBlocks(
 		const roleText = wasImpostor ? "the IMPOSTOR!" : "a Crewmate.";
 		blocks.push(
 			section(
-				`<@${eliminatedPlayer.id}> was ejected!\nThey were *${roleEmoji} ${roleText}*`,
+				`${playerRef(eliminatedPlayer)} was ejected!\nThey were *${roleEmoji} ${roleText}*`,
 			),
 		);
 	} else {
@@ -311,7 +316,7 @@ export function buildResultBlocks(
 	for (const [pid, count] of tally) {
 		const p = game.players.get(pid);
 		if (p) {
-			voteLines.push(`• <@${p.id}>: ${count} vote(s)`);
+			voteLines.push(`• ${playerRef(p)}: ${count} vote(s)`);
 		}
 	}
 
@@ -323,8 +328,7 @@ export function buildResultBlocks(
 	const alivePlayers = Array.from(game.players.values()).filter((p) => p.alive);
 	const aliveList = alivePlayers
 		.map((p) => {
-			const emoji = p.role === "impostor" ? "🐍" : "👨‍🚀";
-			return `${emoji} <@${p.id}>`;
+			return `- ${playerRef(p)}`;
 		})
 		.join("\n");
 	blocks.push(section(`*Still in game:*\n${aliveList}`));
@@ -348,7 +352,7 @@ export function buildEndGameBlocks(
 	const playerLines = Array.from(game.players.values()).map((p) => {
 		const roleEmoji = p.role === "impostor" ? "🐍" : "👨‍🚀";
 		const status = p.alive ? "" : " 💀";
-		return `${roleEmoji} <@${p.id}>${status}`;
+		return `${roleEmoji} ${playerRef(p)}${status}`;
 	});
 	blocks.push(section(`*Final roster:*\n${playerLines.join("\n")}`));
 
@@ -394,7 +398,7 @@ export function buildStatusBlocks(game: Game): any[] {
 	const playerLines = Array.from(game.players.values()).map((p) => {
 		const roleEmoji = showRoles ? (p.role === "impostor" ? "🐍" : "👨‍🚀") : "";
 		const status = p.alive ? "✅" : "💀";
-		return `${status} <@${p.id}> ${roleEmoji}`;
+		return `${status} ${playerRef(p)} ${roleEmoji}`;
 	});
 	blocks.push(section(playerLines.join("\n")));
 

@@ -14,6 +14,7 @@ export interface Player {
 	role: Role | null;
 	alive: boolean;
 	voteCount: number;
+	isBot: boolean;
 }
 
 export interface Mission {

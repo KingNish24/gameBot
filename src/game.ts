@@ -1,4 +1,4 @@
-import { setPhase } from "./store";
+import { addBotsToFill, setPhase } from "./store";
 import type { Game, Mission, Player } from "./types";
 
 const MISSIONS: Mission[] = [
@@ -61,6 +61,14 @@ function shuffleArray<T>(arr: T[]): T[] {
 }
 
 export function startGame(game: Game): string | null {
+	// Auto-fill with bots if fewer than 4 human players
+	const humanPlayers = Array.from(game.players.values()).filter(
+		(p) => !p.isBot && p.alive,
+	);
+	if (humanPlayers.length < 4) {
+		addBotsToFill(game, 4 - humanPlayers.length);
+	}
+
 	const alivePlayers = Array.from(game.players.values()).filter((p) => p.alive);
 	if (alivePlayers.length < 4) {
 		return "Need at least 4 players to start.";

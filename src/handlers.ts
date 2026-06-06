@@ -5,6 +5,7 @@ import type {
 	SlackActionMiddlewareArgs,
 	ViewSubmitAction,
 } from "@slack/bolt";
+import { generateMissionResponse, generateVote } from "./ai";
 import {
 	buildDiscussionBlocks,
 	buildEndGameBlocks,
@@ -27,7 +28,7 @@ import {
 	submitMissionResponse,
 	tallyVotes,
 } from "./game";
-import { addPlayer, getGame, removeGame, setPhase } from "./store";
+import { addPlayer, getGame, setPhase } from "./store";
 
 type ActionHandler = (
 	args: SlackActionMiddlewareArgs & AllMiddlewareArgs,
@@ -126,8 +127,16 @@ export function registerHandlers(app: App): void {
 			return;
 		}
 
+		// Collect bot info for announcement
+		const botPlayers = Array.from(game.players.values()).filter((p) => p.isBot);
+		const botAnnouncement =
+			botPlayers.length > 0
+				? `\n\n🤖 *Bot players have joined:*\n${botPlayers.map((p) => `• ${p.name}`).join("\n")}`
+				: "";
+
 		// Send role DMs
 		for (const player of game.players.values()) {
+			if (player.isBot) continue;
 			try {
 				const blocks = buildRoleDM(player);
 				await client.chat.postMessage({
@@ -142,6 +151,12 @@ export function registerHandlers(app: App): void {
 		}
 
 		// Announce start
+		const startText =
+			"🚀 *GAME STARTED!*\n\n" +
+			`👥 *${game.players.size} players* — ${botPlayers.length} bot(s) on board` +
+			botAnnouncement +
+			"\n\nRoles have been assigned. Check your *DMs*!";
+
 		await client.chat.postMessage({
 			token: process.env.SLACK_BOT_TOKEN,
 			channel: channelId,
@@ -151,9 +166,7 @@ export function registerHandlers(app: App): void {
 					type: "section",
 					text: {
 						type: "mrkdwn",
-						text:
-							"🚀 *GAME STARTED!*\n\n" +
-							"Roles have been assigned. Check your *DMs*!",
+						text: startText,
 					},
 				},
 			],
@@ -464,15 +477,18 @@ export function registerHandlers(app: App): void {
 	}) as any);
 }
 
-/** Start a round: send mission DMs, set timer */
+/** Start a round: send mission DMs, set timer, trigger bot AI responses */
 export async function startRound(client: any, game: import("./types").Game) {
 	startNextRound(game);
 	const mission = getCurrentMission(game);
 
 	if (!mission) return;
 
-	for (const player of game.players.values()) {
-		if (!player.alive) continue;
+	const alivePlayers = Array.from(game.players.values()).filter((p) => p.alive);
+
+	// Send mission DMs to human players only
+	for (const player of alivePlayers) {
+		if (player.isBot) continue;
 		try {
 			const dmBlocks = buildMissionDM(
 				game,
@@ -506,12 +522,19 @@ export async function startRound(client: any, game: import("./types").Game) {
 		],
 	});
 
+	// Trigger AI responses for bot players
+	const botPlayers = alivePlayers.filter((p) => p.isBot);
+	if (botPlayers.length > 0) {
+		// Fire bot responses asynchronously (non-blocking)
+		processBotMissionResponses(game, mission.scenario, botPlayers);
+	}
+
 	const MISSION_TIMEOUT = 60_000;
 	if (game.timer) clearTimeout(game.timer);
 	game.timer = setTimeout(async () => {
 		try {
-			for (const player of game.players.values()) {
-				if (player.alive && !game.missionResponses.has(player.id)) {
+			for (const player of alivePlayers) {
+				if (!game.missionResponses.has(player.id)) {
 					game.missionResponses.set(player.id, "(no response — time's up!)");
 				}
 			}
@@ -541,12 +564,42 @@ export async function startRound(client: any, game: import("./types").Game) {
 	}, MISSION_TIMEOUT);
 }
 
+/** Generate AI mission responses for all bot players */
+async function processBotMissionResponses(
+	game: import("./types").Game,
+	scenario: string,
+	botPlayers: import("./types").Player[],
+): Promise<void> {
+	const allPlayers = Array.from(game.players.values());
+	const mission = getCurrentMission(game);
+
+	for (const bot of botPlayers) {
+		try {
+			const response = await generateMissionResponse(
+				bot,
+				scenario,
+				bot.role === "crewmate" && mission ? mission.crewmateInfo : null,
+				allPlayers,
+			);
+			submitMissionResponse(game, bot.id, response);
+			console.log(
+				`Bot ${bot.name} submitted mission response: "${response.substring(0, 60)}..."`,
+			);
+		} catch (err) {
+			console.error(`Bot ${bot.name} mission response failed:`, err);
+		}
+	}
+}
+
 async function advanceToVoting(client: any, game: import("./types").Game) {
 	startVotingPhase(game);
 	if (game.timer) clearTimeout(game.timer);
 
-	for (const player of game.players.values()) {
-		if (!player.alive) continue;
+	const alivePlayers = Array.from(game.players.values()).filter((p) => p.alive);
+
+	// Send voting buttons to human players only
+	for (const player of alivePlayers) {
+		if (player.isBot) continue;
 		try {
 			await client.chat.postEphemeral({
 				token: process.env.SLACK_BOT_TOKEN,
@@ -570,6 +623,50 @@ async function advanceToVoting(client: any, game: import("./types").Game) {
 		} catch (err) {
 			console.error(`Failed to send vote ephemeral:`, err);
 		}
+	}
+
+	// Trigger AI votes for bot players
+	const botPlayers = alivePlayers.filter((p) => p.isBot);
+	if (botPlayers.length > 0) {
+		processBotVotes(client, game, botPlayers);
+	}
+}
+
+/** Generate AI votes for all bot players, then auto-process if all votes are in */
+async function processBotVotes(
+	client: any,
+	game: import("./types").Game,
+	botPlayers: import("./types").Player[],
+): Promise<void> {
+	const alivePlayers = Array.from(game.players.values()).filter((p) => p.alive);
+	const responses = getAnonymizedResponses(game);
+	const mission = getCurrentMission(game);
+	const scenario = mission?.scenario ?? "";
+
+	for (const bot of botPlayers) {
+		try {
+			const targetId = await generateVote(
+				bot,
+				responses,
+				alivePlayers,
+				scenario,
+			);
+
+			const err = castVote(game, bot.id, targetId);
+			if (err) {
+				console.error(`Bot ${bot.name} vote failed: ${err}`);
+				continue;
+			}
+			console.log(`Bot ${bot.name} voted for target ${targetId}`);
+		} catch (err) {
+			console.error(`Bot ${bot.name} vote failed:`, err);
+		}
+	}
+
+	// After all bot votes are in, check if ALL players have voted
+	// (bots + any humans who already voted). If so, process results.
+	if (allPlayersVoted(game)) {
+		await processVoteResults(client, game);
 	}
 }
 
