@@ -1,6 +1,8 @@
 import { addBotsToFill, setPhase } from "./store";
 import type { Game, Mission, Player } from "./types";
 
+export const VOTE_SKIP = "__skip__";
+
 const MISSIONS: Mission[] = [
 	{
 		number: 1,
@@ -47,8 +49,10 @@ const MISSIONS: Mission[] = [
 ];
 
 export function getCurrentMission(game: Game): Mission | null {
-	if (game.round < 1 || game.round > MISSIONS.length) return null;
-	return MISSIONS[game.round - 1]!;
+	if (game.round < 1 || game.round > game.missionOrder.length) return null;
+	const idx = game.missionOrder[game.round - 1];
+	if (idx === undefined || idx < 0 || idx >= MISSIONS.length) return null;
+	return MISSIONS[idx]!;
 }
 
 function shuffleArray<T>(arr: T[]): T[] {
@@ -89,6 +93,9 @@ export function startGame(game: Game): string | null {
 	}
 
 	game.round = 0;
+	game.missionOrder = shuffleArray(
+		Array.from({ length: MISSIONS.length }, (_, i) => i),
+	);
 	game.votes = new Map();
 	game.missionResponses = new Map();
 	game.winReason = null;
@@ -148,6 +155,12 @@ export function castVote(
 		return "Only alive players can vote.";
 	}
 
+	// Allow skip vote (sentinel value) without player validation
+	if (targetId === VOTE_SKIP) {
+		game.votes.set(voterId, targetId);
+		return null;
+	}
+
 	const target = game.players.get(targetId);
 	if (!target || !target.alive) {
 		return "That player is not in the game or is no longer alive.";
@@ -165,11 +178,17 @@ export function castVote(
 export function tallyVotes(game: Game): {
 	eliminated: string | null;
 	wasImpostor: boolean;
+	skipCount: number;
 } {
-	// Count votes per target
+	// Count votes per target (excluding skip votes)
 	const voteCounts = new Map<string, number>();
+	let skipCount = 0;
 	for (const targetId of game.votes.values()) {
-		voteCounts.set(targetId, (voteCounts.get(targetId) ?? 0) + 1);
+		if (targetId === VOTE_SKIP) {
+			skipCount++;
+		} else {
+			voteCounts.set(targetId, (voteCounts.get(targetId) ?? 0) + 1);
+		}
 	}
 
 	// Update voteCount on Player objects
@@ -184,7 +203,7 @@ export function tallyVotes(game: Game): {
 	}
 
 	if (maxVotes === 0) {
-		return { eliminated: null, wasImpostor: false };
+		return { eliminated: null, wasImpostor: false, skipCount };
 	}
 
 	// Find who got max votes
@@ -195,7 +214,7 @@ export function tallyVotes(game: Game): {
 
 	// Tie = no elimination
 	if (topCandidates.length > 1) {
-		return { eliminated: null, wasImpostor: false };
+		return { eliminated: null, wasImpostor: false, skipCount };
 	}
 
 	const eliminatedId = topCandidates[0]!;
@@ -208,7 +227,7 @@ export function tallyVotes(game: Game): {
 	}
 
 	game.eliminated = eliminatedId;
-	return { eliminated: eliminatedId, wasImpostor };
+	return { eliminated: eliminatedId, wasImpostor, skipCount };
 }
 
 /**

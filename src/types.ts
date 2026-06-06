@@ -31,6 +31,7 @@ export interface Game {
 	players: Map<string, Player>;
 	round: number;
 	maxRounds: number;
+	missionOrder: number[];
 	timer: ReturnType<typeof setTimeout> | null;
 	timerInterval: ReturnType<typeof setInterval> | null;
 	timerMessageTs: string | null;

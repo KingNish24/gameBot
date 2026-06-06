@@ -23,6 +23,7 @@ export function createGame(
 		players: new Map(),
 		round: 0,
 		maxRounds: 3,
+		missionOrder: [],
 		timer: null,
 		timerInterval: null,
 		timerMessageTs: null,

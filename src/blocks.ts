@@ -245,6 +245,12 @@ export function buildVoteModal(game: Game): any {
 		value: p.id,
 	}));
 
+	// Add skip option at the top
+	options.unshift({
+		text: plain("⏭️ Skip Vote"),
+		value: "__skip__",
+	});
+
 	return {
 		type: "modal",
 		callback_id: "astro_vote_modal",
@@ -255,7 +261,7 @@ export function buildVoteModal(game: Game): any {
 		blocks: [
 			{
 				type: "section",
-				text: md("Select the player you believe is the 🐍 Impostor:"),
+				text: md("Select the player you believe is the 🐍 Impostor, or skip:"),
 			},
 			{
 				type: "input",
@@ -263,7 +269,7 @@ export function buildVoteModal(game: Game): any {
 				element: {
 					type: "static_select",
 					action_id: "astro_vote_select",
-					placeholder: plain("Choose a player..."),
+					placeholder: plain("Choose a player or skip..."),
 					options,
 				},
 				label: plain("Who is the Impostor?"),

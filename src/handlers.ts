@@ -17,6 +17,7 @@ import {
 	updateLobbyBlocks,
 } from "./blocks";
 import {
+	VOTE_SKIP,
 	allPlayersResponded,
 	allPlayersVoted,
 	castVote,
@@ -260,7 +261,7 @@ export function registerHandlers(app: App): void {
 		if (!targetId) {
 			await ack({
 				response_action: "errors",
-				errors: { vote_block: "Please select a player to vote for." },
+				errors: { vote_block: "Please select a player or skip." },
 			});
 			return;
 		}
@@ -278,11 +279,12 @@ export function registerHandlers(app: App): void {
 			return;
 		}
 
+		const voteLabel = targetId === "__skip__" ? "⏭️ You chose to skip!" : "🗳️ Your vote has been recorded!";
 		await client.chat.postEphemeral({
 			token: process.env.SLACK_BOT_TOKEN,
 			channel: channelId,
 			user: userId,
-			text: "🗳️ Your vote has been recorded!",
+			text: voteLabel,
 		});
 
 		if (allPlayersVoted(game)) {
@@ -450,6 +452,9 @@ export function registerHandlers(app: App): void {
 					await clearTimerDisplay(game, client, channel);
 					startVotingPhase(game);
 
+					// Start voting countdown timer
+					startTimerDisplay(client, game, 30_000, "🗳️ Voting");
+
 					for (const player of game.players.values()) {
 						if (!player.alive || player.isBot) continue;
 						await client.chat.postEphemeral({
@@ -475,6 +480,23 @@ export function registerHandlers(app: App): void {
 							],
 						});
 					}
+
+					// Voting timeout: auto-fill non-voters with skip
+					game.timer = setTimeout(async () => {
+						try {
+							await clearTimerDisplay(game, client, channel);
+							for (const p of game.players.values()) {
+								if (p.alive && !game.votes.has(p.id)) {
+									game.votes.set(p.id, VOTE_SKIP);
+								}
+							}
+							if (allPlayersVoted(game)) {
+								await processVoteResults(client, game);
+							}
+						} catch (err) {
+							console.error("Error during voting timeout:", err);
+						}
+					}, 30_000);
 				} catch (err) {
 					console.error("Error auto-advancing to voting:", err);
 				}
@@ -727,6 +749,28 @@ async function advanceToVoting(client: any, game: import("./types").Game) {
 	if (botPlayers.length > 0) {
 		processBotVotes(client, game, botPlayers);
 	}
+
+	// Start voting countdown timer
+	startTimerDisplay(client, game, 30_000, "🗳️ Voting");
+
+	const VOTE_TIMEOUT = 30_000;
+	if (game.timer) clearTimeout(game.timer);
+	game.timer = setTimeout(async () => {
+		try {
+			await clearTimerDisplay(game, client, game.channel);
+			// Fill non-voters with skip
+			for (const p of game.players.values()) {
+				if (p.alive && !game.votes.has(p.id)) {
+					game.votes.set(p.id, VOTE_SKIP);
+				}
+			}
+			if (allPlayersVoted(game)) {
+				await processVoteResults(client, game);
+			}
+		} catch (err) {
+			console.error("Error during voting timeout:", err);
+		}
+	}, VOTE_TIMEOUT);
 }
 
 /** Generate AI votes for all bot players, then auto-process if all votes are in */
