@@ -52,7 +52,7 @@ export function registerHandlers(app: App): void {
 		if (!game) {
 			await respond({
 				response_type: "ephemeral",
-				text: "No game in this channel. Create one with `/astro`",
+				text: "No game in this channel. Create one with `/fn-imposter`",
 			});
 			return;
 		}

@@ -361,12 +361,12 @@ export function buildEndGameBlocks(
 	blocks.push(section(`*Final roster:*\n${playerLines.join("\n")}`));
 
 	blocks.push(divider());
-	blocks.push(section("Start a new game with `/astro` in any channel!"));
+	blocks.push(section("Start a new game with `/fn-imposter` in any channel!"));
 
 	return blocks;
 }
 
-/** Status blocks for /astro status */
+/** Status blocks for /fn-imposter status */
 export function buildStatusBlocks(game: Game): any[] {
 	const phaseEmoji: Record<string, string> = {
 		lobby: "🚀",

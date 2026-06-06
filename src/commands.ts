@@ -77,7 +77,7 @@ export function registerCommands(app: App): void {
 					if (!game) {
 						await respond({
 							response_type: "ephemeral",
-							text: "No game in this channel. Create one with `/astro`",
+							text: "No game in this channel. Create one with `/fn-imposter`",
 						});
 						return;
 					}
@@ -274,7 +274,7 @@ export function registerCommands(app: App): void {
 					if (!targetUser) {
 						await respond({
 							response_type: "ephemeral",
-							text: "Usage: `/astro vote @user`\nExample: `/astro vote @alice`",
+							text: "Usage: `/fn-imposter vote @user`\nExample: `/fn-imposter vote @alice`",
 						});
 						return;
 					}
@@ -362,13 +362,13 @@ export function registerCommands(app: App): void {
 						response_type: "ephemeral",
 						text:
 							"🚀 *Astronaut Impostor Commands*\n\n" +
-							"`/astro` — Create a new game or show status\n" +
-							"`/astro join` — Join the game\n" +
-							"`/astro leave` — Leave the game\n" +
-							"`/astro start` — Start the game (creator only, need 4+ players)\n" +
-							"`/astro vote @user` — Vote to eject someone\n" +
-							"`/astro status` — Show game status\n" +
-							"`/astro cancel` — Cancel the game (creator only)",
+							"`/fn-imposter` — Create a new game or show status\n" +
+							"`/fn-imposter join` — Join the game\n" +
+							"`/fn-imposter leave` — Leave the game\n" +
+							"`/fn-imposter start` — Start the game (creator only, need 4+ players)\n" +
+							"`/fn-imposter vote @user` — Vote to eject someone\n" +
+							"`/fn-imposter status` — Show game status\n" +
+							"`/fn-imposter cancel` — Cancel the game (creator only)",
 					});
 					return;
 				}
