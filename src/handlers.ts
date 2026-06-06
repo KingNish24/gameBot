@@ -178,27 +178,39 @@ export function registerHandlers(app: App): void {
 			});
 		}
 
-		// Announce start
+		// Announce start as threaded reply under main message
 		const startText =
 			"🚀 *GAME STARTED!*\n\n" +
 			`👥 *${game.players.size} players* — ${botPlayers.length} bot(s) on board` +
 			botAnnouncement +
 			"\n\nRoles have been assigned. Check your *DMs*!";
 
-		await client.chat.postMessage({
-			token: process.env.SLACK_BOT_TOKEN,
-			channel: channelId,
-			text: "🚀 Game started!",
-			blocks: [
-				{
-					type: "section",
-					text: {
-						type: "mrkdwn",
-						text: startText,
-					},
+		const startBlocks = [
+			{
+				type: "section",
+				text: {
+					type: "mrkdwn",
+					text: startText,
 				},
-			],
-		});
+			},
+		];
+
+		if (game.mainMessageTs) {
+			await client.chat.postMessage({
+				token: process.env.SLACK_BOT_TOKEN,
+				channel: channelId,
+				thread_ts: game.mainMessageTs,
+				text: "🚀 Game started!",
+				blocks: startBlocks,
+			});
+		} else {
+			await client.chat.postMessage({
+				token: process.env.SLACK_BOT_TOKEN,
+				channel: channelId,
+				text: "🚀 Game started!",
+				blocks: startBlocks,
+			});
+		}
 
 		// Start first round
 		await startRound(client, game);
@@ -330,7 +342,7 @@ export function registerHandlers(app: App): void {
 				eliminatedPlayer,
 				wasImpostor,
 			);
-			await sendMainMessage(client, game, "🚨 Vote Results", resultBlocks);
+			await postInThread(client, game, "🚨 Vote Results", resultBlocks);
 
 			const winReason = checkWinCondition(game, eliminated);
 
@@ -340,7 +352,7 @@ export function registerHandlers(app: App): void {
 						? "*👨‍🚀 CREWMATE VICTORY!*"
 						: "*🐍 IMPOSTOR VICTORY!*";
 				const endBlocks = buildEndGameBlocks(game, winner, winReason);
-				await sendMainMessage(client, game, "🎮 Game Over", endBlocks);
+				await postInThread(client, game, "🎮 Game Over", endBlocks);
 			} else {
 				await startRound(client, game);
 			}
@@ -403,12 +415,12 @@ export function registerHandlers(app: App): void {
 			const responses = getAnonymizedResponses(game);
 			const discussionBlocks = buildDiscussionBlocks(game, responses);
 
-			await client.chat.postMessage({
-				token: process.env.SLACK_BOT_TOKEN,
-				channel,
-				text: `📡 Round ${game.round} — Mission Logs`,
-				blocks: discussionBlocks,
-			});
+			await postInThread(
+				client,
+				game,
+				`📡 Round ${game.round} — Mission Logs`,
+				discussionBlocks,
+			);
 
 			// Main message: discussion header + timer
 			const discussionBaseBlocks = [
@@ -563,31 +575,29 @@ async function clearTimerDisplay(game: import("./types").Game) {
 	}
 }
 
-/** Delete previous main message and post a new one, storing the ts */
-async function sendMainMessage(
+/** Post a message as a threaded reply under the main message */
+async function postInThread(
 	client: any,
 	game: import("./types").Game,
 	text: string,
 	blocks: any[],
 ): Promise<void> {
-	if (game.mainMessageTs) {
-		try {
-			await client.chat.delete({
-				token: process.env.SLACK_BOT_TOKEN,
-				channel: game.channel,
-				ts: game.mainMessageTs,
-			});
-		} catch (err) {
-			console.error("Failed to delete previous main message:", err);
-		}
+	if (!game.mainMessageTs) {
+		await client.chat.postMessage({
+			token: process.env.SLACK_BOT_TOKEN,
+			channel: game.channel,
+			text,
+			blocks,
+		});
+		return;
 	}
-	const msg = await client.chat.postMessage({
+	await client.chat.postMessage({
 		token: process.env.SLACK_BOT_TOKEN,
 		channel: game.channel,
+		thread_ts: game.mainMessageTs,
 		text,
 		blocks,
 	});
-	game.mainMessageTs = msg.ts as string;
 }
 
 /** Start a round: send mission DMs, set timer, trigger bot AI responses */
@@ -654,12 +664,12 @@ export async function startRound(client: any, game: import("./types").Game) {
 
 			await clearTimerDisplay(game);
 
-			await client.chat.postMessage({
-				token: process.env.SLACK_BOT_TOKEN,
-				channel: game.channel,
-				text: `📡 Round ${game.round} — Mission Logs`,
-				blocks: discussionBlocks,
-			});
+			await postInThread(
+				client,
+				game,
+				`📡 Round ${game.round} — Mission Logs`,
+				discussionBlocks,
+			);
 
 			// Main message: discussion header + timer
 			const discussionBaseBlocks = [
@@ -846,7 +856,7 @@ export async function processVoteResults(
 		: null;
 
 	const resultBlocks = buildResultBlocks(game, eliminatedPlayer, wasImpostor);
-	await sendMainMessage(client, game, "🚨 Vote Results", resultBlocks);
+	await postInThread(client, game, "🚨 Vote Results", resultBlocks);
 
 	const winReason = checkWinCondition(game, eliminated);
 
@@ -856,7 +866,7 @@ export async function processVoteResults(
 				? "*👨‍🚀 CREWMATE VICTORY!*"
 				: "*🐍 IMPOSTOR VICTORY!*";
 		const endBlocks = buildEndGameBlocks(game, winner, winReason);
-		await sendMainMessage(client, game, "🎮 Game Over", endBlocks);
+		await postInThread(client, game, "🎮 Game Over", endBlocks);
 	} else {
 		await startRound(client, game);
 	}

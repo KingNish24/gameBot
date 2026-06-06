@@ -261,27 +261,39 @@ export function registerCommands(app: App): void {
 						});
 					}
 
-					// Announce
+					// Announce as threaded reply under main message
 					const startText =
 						"🚀 *GAME STARTED!*\n\n" +
 						`👥 *${game.players.size} players* — ${botPlayers.length} bot(s) on board` +
 						botAnnouncement +
 						"\n\nRoles have been assigned. Check your *DMs*!";
 
-					await client.chat.postMessage({
-						token: process.env.SLACK_BOT_TOKEN,
-						channel: command.channel_id,
-						text: "🚀 Game started!",
-						blocks: [
-							{
-								type: "section",
-								text: {
-									type: "mrkdwn",
-									text: startText,
-								},
+					const startBlocks = [
+						{
+							type: "section",
+							text: {
+								type: "mrkdwn",
+								text: startText,
 							},
-						],
-					});
+						},
+					];
+
+					if (game.mainMessageTs) {
+						await client.chat.postMessage({
+							token: process.env.SLACK_BOT_TOKEN,
+							channel: command.channel_id,
+							thread_ts: game.mainMessageTs,
+							text: "🚀 Game started!",
+							blocks: startBlocks,
+						});
+					} else {
+						await client.chat.postMessage({
+							token: process.env.SLACK_BOT_TOKEN,
+							channel: command.channel_id,
+							text: "🚀 Game started!",
+							blocks: startBlocks,
+						});
+					}
 
 					// Start round 1
 					await startRound(client, game);
