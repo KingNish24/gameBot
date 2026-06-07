@@ -4,6 +4,8 @@ A Among Us-style played entirely inside **Slack**. Players gather in a channel, 
 
 When fewer than 4 humans join, **AI-powered bot players** fill the space so the game always launches.
 
+Demo Link: https://hackclub.enterprise.slack.com/archives/C0B9KNUSD7S
+
 ---
 
 ## Game Flow
@@ -30,6 +32,7 @@ Lobby → Mission → Discussion → Voting → Result → (next round or end)
 | `/fn-imposter join` | Join the lobby |
 | `/fn-imposter leave` | Leave the lobby |
 | `/fn-imposter start` | Start the game (creator only, auto-fills bots if < 4 humans) |
+| `/fn-imposter rules` | Show Rules of the game |
 | `/fn-imposter vote @user` | Vote via text command |
 | `/fn-imposter status` | Show current game state |
 | `/fn-imposter cancel` | Cancel the game (creator only) |
@@ -43,7 +46,6 @@ Lobby → Mission → Discussion → Voting → Result → (next round or end)
 ### Prerequisites
 
 - [Bun](https://bun.sh) v1.3.13+
-- A Slack app with **Socket Mode** enabled
 
 ### 1. Clone and install
 
@@ -104,3 +106,9 @@ When a game starts with **fewer than 4 human players**, bots are automatically a
 | AI API | OpenAI-compatible (configurable `AI_BASE_URL`) |
 | Linter | [Biome](https://biomejs.dev) |
 | Storage | In-memory (`Map`) |
+
+---
+
+## AI Use
+
+I used OpenCode for debugging and documentation.
